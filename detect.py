@@ -37,12 +37,13 @@ import datetime
 import csv
 import tflite_runtime.interpreter as tflite
 
+from tflite_runtime.interpreter import load_delegate
 from PIL import Image
 from utils.centroidtracker import CentroidTracker
 from utils import label_map_util_custom
 
 
-PATH_TO_LABELS = os.path.join('../all_models', 'coco_labels.txt')
+PATH_TO_LABELS = os.path.join('./all_models', 'coco_labels.txt')
 
 NUM_CLASSES = 90
 
@@ -92,7 +93,7 @@ def get_output(interpreter, score_threshold, top_k, image_scale=1.0):
 
 
 def main():
-    default_model_dir = '../all_models'
+    default_model_dir = '/home/mendel/cars-counting/all_models'
     default_model = 'mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite'
     default_labels = 'coco_labels.txt'
     parser = argparse.ArgumentParser()
@@ -107,8 +108,8 @@ def main():
                         help='classifier score threshold')
     args = parser.parse_args()
 
-    print('Loading {} with {} labels.'.format(args.model, args.labels))
-    interpreter = common.make_interpreter(args.model)
+    print('Loading {} with {} labels.'.format(args.model, args.labels)) 
+    interpreter = tflite.Interpreter(args.model, experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
     interpreter.allocate_tensors()
     labels = load_labels(args.labels)
     detection_threshold = 0.5
@@ -120,7 +121,7 @@ def main():
     csv_columns = ["Number", "Type", "Date"]
     csv_dict = []
 
-    cap = cv2.VideoCapture(args.camera_idx)
+    cap = cv2.VideoCapture("rtsp://192.168.0.102/h264")
     # fourcc = cv2.VideoWriter_fourcc(*'DIVX')
     # out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (640,352))
 
@@ -133,6 +134,7 @@ def main():
             if not ret:
                 break
             cv2_im = frame
+            cv2_im = cv2.resize(cv2_im, (1280, 720))
             frames_until_reset += 1
 
             cv2_im_rgb = cv2.cvtColor(cv2_im, cv2.COLOR_BGR2RGB)
