@@ -116,7 +116,8 @@ def main():
 
     counted_cars_ids = []
     counted_cars = 0
-    line_coords = 345
+    line_coords = 190
+    vertical_line = 340
     frames_until_reset = 0
     csv_columns = ["Number", "Type", "Date"]
     csv_dict = []
@@ -126,7 +127,7 @@ def main():
     # out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (640,352))
 
     ct = CentroidTracker()
-    with open("output.csv", "w") as output_file:
+    with open("output_" + datetime.datetime.today().strftime('%Y-%m-%d') + ".csv", "w") as output_file:
         writer = csv.DictWriter(output_file, fieldnames=csv_columns)
         writer.writeheader()
         while cap.isOpened():
@@ -134,7 +135,6 @@ def main():
             if not ret:
                 break
             cv2_im = frame
-            cv2_im = cv2.resize(cv2_im, (1280, 720))
             frames_until_reset += 1
 
             cv2_im_rgb = cv2.cvtColor(cv2_im, cv2.COLOR_BGR2RGB)
@@ -150,7 +150,7 @@ def main():
             scores = np.squeeze(scores)
 
             for ind in range(len(boxes)):
-                if scores[ind] > detection_threshold and (classes[ind] == 2 or classes[ind] == 7):
+                if scores[ind] > detection_threshold and (classes[ind] == 2 or classes[ind] == 7 or classes[ind] == 3):
 
                     box = boxes[ind] * np.array([h, w, h, w])
                     box = np.append(box, classes[ind])
@@ -169,7 +169,7 @@ def main():
                 # object on the output frame
 
                 if centroid[1] > line_coords:
-                    if objectID not in counted_cars_ids and centroid[0] <= 570:
+                    if objectID not in counted_cars_ids:
                         counted_cars += 1
                         object_type = labels[centroid[2]]
                         new_entry = {"Number": counted_cars, "Type": object_type, "Date": datetime.datetime.now()}
@@ -198,10 +198,9 @@ def main():
             )
 
             cv2.line(cv2_im, (0, line_coords), (w, line_coords), (0, 0, 0xFF), 5)
-            cv2.line(cv2_im, (570, line_coords), (570, h), (0, 0, 0xFF), 5)
+            cv2.line(cv2_im, (vertical_line, line_coords), (vertical_line, h), (0, 0, 0xFF), 5)
 
             # out.write(frame)
-            cv2.imshow('frame', cv2_im)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
