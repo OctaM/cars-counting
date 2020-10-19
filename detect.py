@@ -35,15 +35,18 @@ import os
 import re
 import datetime
 import csv
-import tflite_runtime.interpreter as tflite
 
-from tflite_runtime.interpreter import load_delegate
+# uncomment imports to run on google coral
+# import tflite_runtime.interpreter as tflite
+# from tflite_runtime.interpreter import load_delegate
+import tensorflow as tf
 from PIL import Image
 from utils.centroidtracker import CentroidTracker
+from utils.blazeface import BlazeFace
 from utils import label_map_util_custom
 
 
-PATH_TO_LABELS = os.path.join('./all_models', 'coco_labels.txt')
+PATH_TO_LABELS = os.path.join('./all_models', 'navi_app.txt')
 
 NUM_CLASSES = 90
 
@@ -92,13 +95,40 @@ def get_output(interpreter, score_threshold, top_k, image_scale=1.0):
     return [make(i) for i in range(top_k) if scores[i] >= score_threshold], boxes, class_ids, scores, count
 
 
+
+
+# def get_output_face_detection(interpreter, score_threshold, top_k):
+#     boxes = common.output_tensor(interpreter, 0)
+#     class_ids = common.output_tensor(interpreter, 1)
+#     # scores = common.output_tensor(interpreter, 2)
+#     # count = int(common.output_tensor(interpreter, 3))
+#
+#     def make(i):
+#         ymin, xmin, ymax, xmax = boxes[i][:4]
+#         return ObjectFace(
+#             id=int(class_ids[i]),
+#             bbox=BBox(xmin=np.maximum(0.0, xmin),
+#                       ymin=np.maximum(0.0, ymin),
+#                       xmax=np.minimum(1.0, xmax),
+#                       ymax=np.minimum(1.0, ymax)))
+#
+#     return [make(i) for i in range(top_k)], boxes[...,:4], class_ids
+
+
 def main():
-    default_model_dir = '/home/mendel/cars-counting/all_models'
-    default_model = 'mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite'
-    default_labels = 'coco_labels.txt'
+
+    # TODO uncomment path to run on google coral
+    # default_model_dir = '/home/mendel/cars-counting/all_models'
+    # default_model = 'mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite'
+    default_model_dir = '/Users/octavian/Projects/Python3_projects/cars-counting/all_models'
+    default_model = 'mobilenet_ssd_v2_coco_quant_postprocess.tflite'
+    default_model_face_det  = 'face_detection_back.tflite'
+    default_labels = 'navi_app.txt'
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', help='.tflite model path',
                         default=os.path.join(default_model_dir,default_model))
+    parser.add_argument('--model_face', help='.tflite model path',
+                        default=os.path.join(default_model_dir,default_model_face_det))
     parser.add_argument('--labels', help='label file path',
                         default=os.path.join(default_model_dir, default_labels))
     parser.add_argument('--top_k', type=int, default=3,
@@ -108,21 +138,27 @@ def main():
                         help='classifier score threshold')
     args = parser.parse_args()
 
-    print('Loading {} with {} labels.'.format(args.model, args.labels)) 
-    interpreter = tflite.Interpreter(args.model, experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
+    print('Loading {} with {} labels.'.format(args.model, args.labels))
+
+    # TODO uncomment interpreter creation so it can run on TPU (for google coral)
+    # interpreter = tflite.Interpreter(args.model, experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
+    interpreter = tf.lite.Interpreter(args.model)
     interpreter.allocate_tensors()
+    blazeface = BlazeFace()
+    blazeface.load_anchors('./anchors.npy')
+    blazeface.load_interpreter(os.path.join(default_model_dir, default_model_face_det))
+
     labels = load_labels(args.labels)
     detection_threshold = 0.5
 
     counted_cars_ids = []
     counted_cars = 0
     line_coords = 190
-    vertical_line = 340
     frames_until_reset = 0
     csv_columns = ["Number", "Type", "Date"]
-    csv_dict = []
 
-    cap = cv2.VideoCapture("rtsp://192.168.0.102/h264")
+    # cap = cv2.VideoCapture("rtsp://192.168.0.102/h264")
+    cap = cv2.VideoCapture(0)
     # fourcc = cv2.VideoWriter_fourcc(*'DIVX')
     # out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (640,352))
 
@@ -148,10 +184,16 @@ def main():
             boxes = np.squeeze(boxes)
             classes = np.squeeze(classes).astype(np.int32)
             scores = np.squeeze(scores)
+            face_det_img = pil_im.resize((128, 128))
+            face_detections = blazeface.predict(face_det_img)
+            face_cv2_img = cv2.resize(cv2_im, (128, 128))
+            for det in face_detections[0]:
+                ymin, xmin, ymax, xmax = det[:4]
+                cv2.rectangle(face_cv2_img, (int(xmin*128), int(ymin*128)), (int(xmax*128), int(ymax*128)), (0, 255, 0), 2)
+                cv2.imshow('facedet', face_cv2_img); cv2.waitKey(1)
 
             for ind in range(len(boxes)):
-                if scores[ind] > detection_threshold and (classes[ind] == 2 or classes[ind] == 7 or classes[ind] == 3):
-
+                if scores[ind] > detection_threshold:
                     box = boxes[ind] * np.array([h, w, h, w])
                     box = np.append(box, classes[ind])
                     rects.append(box.astype('int'))
@@ -160,7 +202,7 @@ def main():
                     cv2.rectangle(cv2_im, (startX, startY), (endX, endY),
                                   (0, 255, 0), 2)
 
-            # cv2_im = append_objs_to_img(cv2_im, objs, labels)
+            cv2_im = append_objs_to_img(cv2_im, objs, labels)
 
             objects = ct.update(rects)
 
@@ -197,9 +239,9 @@ def main():
                 cv2.FONT_HERSHEY_SIMPLEX,
             )
 
-            cv2.line(cv2_im, (0, line_coords), (w, line_coords), (0, 0, 0xFF), 5)
-            cv2.line(cv2_im, (vertical_line, line_coords), (vertical_line, h), (0, 0, 0xFF), 5)
-
+            # cv2.line(cv2_im, (0, line_coords), (w, line_coords), (0, 0, 0xFF), 5)
+            # cv2.line(cv2_im, (vertical_line, line_coords), (vertical_line, h), (0, 0, 0xFF), 5)
+            cv2.imshow('output', cv2_im); cv2.waitKey(1)
             # out.write(frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -215,11 +257,12 @@ def append_objs_to_img(cv2_im, objs, labels):
         x0, y0, x1, y1 = list(obj.bbox)
         x0, y0, x1, y1 = int(x0*width), int(y0*height), int(x1*width), int(y1*height)
         percent = int(100 * obj.score)
-        label = '{}% {}'.format(percent, labels.get(obj.id, obj.id))
+        label = labels.get(obj.id, obj.id)
 
-        cv2_im = cv2.rectangle(cv2_im, (x0, y0), (x1, y1), (0, 255, 0), 2)
-        cv2_im = cv2.putText(cv2_im, label, (x0, y0+30),
-                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 0), 2)
+        if label in labels.values():
+            cv2_im = cv2.rectangle(cv2_im, (x0, y0), (x1, y1), (0, 255, 0), 2)
+            cv2_im = cv2.putText(cv2_im, " {}% {}".format(percent, label), (x0, y0+30),
+                                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 0), 2)
     return cv2_im
 
 
