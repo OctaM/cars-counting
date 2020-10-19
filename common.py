@@ -15,8 +15,8 @@
 """Common utilities."""
 import numpy as np
 from PIL import Image
-# import tflite_runtime.interpreter as tflite
-import tensorflow as tf
+import tflite_runtime.interpreter as tflite
+# import tensorflow as tf
 import platform
 
 EDGETPU_SHARED_LIB = {
@@ -27,7 +27,7 @@ EDGETPU_SHARED_LIB = {
 
 def make_interpreter(model_file):
     model_file, *device = model_file.split('@')
-    return tf.lite.Interpreter(
+    return tflite.Interpreter(
       model_path=model_file)
 
 def set_input(interpreter, image, resample=Image.NEAREST):

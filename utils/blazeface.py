@@ -1,7 +1,9 @@
 import numpy as np
-import tensorflow as tf
+# import tensorflow as tf
+import tflite_runtime.interpreter as tflite
+from tflite_runtime.interpreter import load_delegate
 import common
-import  collections
+import collections
 
 
 class BlazeFace:
@@ -28,7 +30,8 @@ class BlazeFace:
         # assert (self.anchors.shape[1] == 4)
 
     def load_interpreter(self, path):
-        self.interpreter = tf.lite.Interpreter(path)
+        # self.interpreter = tf.lite.Interpreter(path)
+        self.interpreter = tflite.Interpreter(path, experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
         self.interpreter.allocate_tensors()
 
     def predict(self, img):
@@ -216,10 +219,10 @@ def sigmoid_array(x):
     return 1 / (1 + np.exp(-x))
 
 
-if __name__ == "__main__":
-
-    blazeface = BlazeFace()
-
-    blazeface.load_anchors('../anchors.npy')
-
-    print(blazeface.anchors.shape)
+# if __name__ == "__main__":
+#
+#     blazeface = BlazeFace()
+#
+#     blazeface.load_anchors('../anchors.npy')
+#
+#     print(blazeface.anchors.shape)

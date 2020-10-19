@@ -37,9 +37,9 @@ import datetime
 import csv
 
 # uncomment imports to run on google coral
-# import tflite_runtime.interpreter as tflite
-# from tflite_runtime.interpreter import load_delegate
-import tensorflow as tf
+import tflite_runtime.interpreter as tflite
+from tflite_runtime.interpreter import load_delegate
+# import tensorflow as tf
 from PIL import Image
 from utils.centroidtracker import CentroidTracker
 from utils.blazeface import BlazeFace
@@ -118,11 +118,13 @@ def get_output(interpreter, score_threshold, top_k, image_scale=1.0):
 def main():
 
     # TODO uncomment path to run on google coral
-    # default_model_dir = '/home/mendel/cars-counting/all_models'
-    # default_model = 'mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite'
-    default_model_dir = '/Users/octavian/Projects/Python3_projects/cars-counting/all_models'
-    default_model = 'mobilenet_ssd_v2_coco_quant_postprocess.tflite'
-    default_model_face_det  = 'face_detection_back.tflite'
+    default_model_dir = '/home/mendel/cars-counting/all_models'
+    default_model = 'mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite'
+    default_model_face_det = 'face-detector-quantized_edgetpu.tflite'
+
+    # default_model_dir = '/Users/octavian/Projects/Python3_projects/cars-counting/all_models'
+    # default_model = 'mobilenet_ssd_v2_coco_quant_postprocess.tflite'
+    # default_model_face_det  = 'face_detection_back.tflite'
     default_labels = 'navi_app.txt'
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', help='.tflite model path',
@@ -141,8 +143,8 @@ def main():
     print('Loading {} with {} labels.'.format(args.model, args.labels))
 
     # TODO uncomment interpreter creation so it can run on TPU (for google coral)
-    # interpreter = tflite.Interpreter(args.model, experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
-    interpreter = tf.lite.Interpreter(args.model)
+    interpreter = tflite.Interpreter(args.model, experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
+    # interpreter = tf.lite.Interpreter(args.model)
     interpreter.allocate_tensors()
     blazeface = BlazeFace()
     blazeface.load_anchors('./anchors.npy')
