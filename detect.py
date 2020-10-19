@@ -206,24 +206,24 @@ def main():
 
             cv2_im = append_objs_to_img(cv2_im, objs, labels)
 
-            objects = ct.update(rects)
+            # objects = ct.update(rects)
 
-            for (objectID, centroid) in objects.items():
-                # draw both the ID of the object and the centroid of the
-                # object on the output frame
-
-                if centroid[1] > line_coords:
-                    if objectID not in counted_cars_ids:
-                        counted_cars += 1
-                        object_type = labels[centroid[2]]
-                        new_entry = {"Number": counted_cars, "Type": object_type, "Date": datetime.datetime.now()}
-                        writer.writerow(new_entry)
-                    counted_cars_ids.append(objectID)
-
-                text = "ID {}".format(objectID)
-                cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                cv2.circle(frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
+            # for (objectID, centroid) in objects.items():
+            #     # draw both the ID of the object and the centroid of the
+            #     # object on the output frame
+            #
+            #     if centroid[1] > line_coords:
+            #         if objectID not in counted_cars_ids:
+            #             counted_cars += 1
+            #             object_type = labels[centroid[2]]
+            #             new_entry = {"Number": counted_cars, "Type": object_type, "Date": datetime.datetime.now()}
+            #             writer.writerow(new_entry)
+            #         counted_cars_ids.append(objectID)
+            #
+            #     text = "ID {}".format(objectID)
+            #     cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
+            #                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            #     cv2.circle(frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
 
             # if frames_until_reset == 180:
             #     counted_cars_ids = []
