@@ -95,9 +95,10 @@ def get_output(interpreter, score_threshold, top_k, image_scale=1.0):
 
 
 def main():
-    default_model_dir = '/Users/octavian/Projects/Python3_projects/cars-counting/all_models'
+    default_model_dir = '/home/mendel/cars-counting/all_models'
     default_model = 'mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite'
     default_labels = 'coco_labels.txt'
+    distance_model = 'int8_distance_estimator_edgetpu.tflite'
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', help='.tflite model path',
                         default=os.path.join(default_model_dir,default_model))
@@ -119,7 +120,7 @@ def main():
 
     dist_estimator = ForwardDistanceEstimator()
     dist_estimator.load_scalers('./extra/scaler_x.save', './extra/scaler_y.save')
-    dist_estimator.load_model('/Users/octavian/Projects/Python3_projects/cars-counting/all_models/model@1601380763.json', '/Users/octavian/Projects/Python3_projects/cars-counting/all_models/model@1601380763.h5')
+    dist_estimator.load_model_tpu(os.path.join(default_model_dir, distance_model))
 
     frames_until_reset = 0
     csv_columns = ["Number", "Type", "Date"]
