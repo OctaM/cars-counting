@@ -33,6 +33,7 @@ class ForwardDistanceEstimator():
         common.set_input_distance_prediction(self.estimation_model, scaled_bbox)
         self.estimation_model.invoke()
         y_pred = common.output_tensor(self.estimation_model, 0)
+        print(y_pred.shape)
         # y_pred = self.estimation_model.predict(scaled_bbox)
         dist = self.scaler_y.inverse_transform(y_pred)
         return dist
