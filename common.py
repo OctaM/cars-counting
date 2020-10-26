@@ -34,6 +34,9 @@ def set_input(interpreter, image, resample=Image.NEAREST):
     image = image.resize((input_image_size(interpreter)[0:2]), resample)
     input_tensor(interpreter)[:, :] = image
 
+def set_input_distance_prediction(interpreter, bbox):
+    input_tensor(interpreter)[...] = bbox
+
 def input_image_size(interpreter):
     """Returns input image size as (width, height, channels) tuple."""
     _, height, width, channels = interpreter.get_input_details()[0]['shape']
