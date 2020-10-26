@@ -74,6 +74,11 @@ class BBox(collections.namedtuple('BBox', ['xmin', 'ymin', 'xmax', 'ymax'])):
     __slots__ = ()
 
 
+def get_output_distance(interpreter):
+    distance = common.output_tensor(interpreter, 0)
+    return distance
+
+
 def get_output(interpreter, score_threshold, top_k, image_scale=1.0):
     """Returns list of detected objects."""
     boxes = common.output_tensor(interpreter, 0)

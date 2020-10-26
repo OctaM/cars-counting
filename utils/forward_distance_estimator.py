@@ -1,5 +1,6 @@
 import joblib
 import numpy as np
+import common
 from sklearn.preprocessing import StandardScaler
 # from tensorflow.keras.models import model_from_json
 import tflite_runtime.interpreter as tflite
@@ -29,6 +30,9 @@ class ForwardDistanceEstimator():
 
     def predict_distance(self, x_min, y_min, x_max, y_max):
         scaled_bbox = self.scaler_x.transform(np.array([x_min, y_min, x_max, y_max]).reshape(1, -1))
-        y_pred = self.estimation_model.predict(scaled_bbox)
+        common.set_input(self.estimation_model, scaled_bbox)
+        self.estimation_model.invoke()
+        y_pred = common.output_tensor(self.estimation_model, 0)
+        # y_pred = self.estimation_model.predict(scaled_bbox)
         dist = self.scaler_y.inverse_transform(y_pred)
         return dist
