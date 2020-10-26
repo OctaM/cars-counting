@@ -35,12 +35,14 @@ import os
 import re
 import datetime
 import csv
-import tflite_runtime.interpreter as tflite
-
-from tflite_runtime.interpreter import load_delegate
+# import tflite_runtime.interpreter as tflite
+#
+# from tflite_runtime.interpreter import load_delegate
+import tensorflow as tf
 from PIL import Image
 from utils.centroidtracker import CentroidTracker
 from utils import label_map_util_custom
+from utils.forward_distance_estimator import ForwardDistanceEstimator
 
 
 PATH_TO_LABELS = os.path.join('./all_models', 'coco_labels.txt')
@@ -93,8 +95,8 @@ def get_output(interpreter, score_threshold, top_k, image_scale=1.0):
 
 
 def main():
-    default_model_dir = '/home/mendel/cars-counting/all_models'
-    default_model = 'mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite'
+    default_model_dir = '/Users/octavian/Projects/Python3_projects/cars-counting/all_models'
+    default_model = 'mobilenet_ssd_v2_coco_quant_postprocess.tflite'
     default_labels = 'coco_labels.txt'
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', help='.tflite model path',
@@ -109,20 +111,20 @@ def main():
     args = parser.parse_args()
 
     print('Loading {} with {} labels.'.format(args.model, args.labels)) 
-    interpreter = tflite.Interpreter(args.model, experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
+    # interpreter = tflite.Interpreter(args.model, experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
+    interpreter = tf.lite.Interpreter(args.model)
     interpreter.allocate_tensors()
     labels = load_labels(args.labels)
     detection_threshold = 0.5
 
-    counted_cars_ids = []
-    counted_cars = 0
-    line_coords = 190
-    vertical_line = 340
+    dist_estimator = ForwardDistanceEstimator()
+    dist_estimator.load_scalers('./extra/scaler_x.save', './extra/scaler_y.save')
+    dist_estimator.load_model('/Users/octavian/Projects/Python3_projects/cars-counting/all_models/model@1601380763.json', '/Users/octavian/Projects/Python3_projects/cars-counting/all_models/model@1601380763.h5')
+
     frames_until_reset = 0
     csv_columns = ["Number", "Type", "Date"]
-    csv_dict = []
 
-    cap = cv2.VideoCapture("rtsp://192.168.0.102/h264")
+    cap = cv2.VideoCapture(0)
     # fourcc = cv2.VideoWriter_fourcc(*'DIVX')
     # out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (640,352))
 
@@ -141,7 +143,6 @@ def main():
             pil_im = Image.fromarray(cv2_im_rgb)
 
             (h, w) = cv2_im.shape[:2]
-            rects = []
             common.set_input(interpreter, pil_im)
             interpreter.invoke()
             objs, boxes, classes, scores, count = get_output(interpreter, score_threshold=args.threshold, top_k=args.top_k)
@@ -150,60 +151,30 @@ def main():
             scores = np.squeeze(scores)
 
             for ind in range(len(boxes)):
-                if scores[ind] > detection_threshold and (classes[ind] == 2 or classes[ind] == 7 or classes[ind] == 3):
+                if scores[ind] > detection_threshold and (classes[ind] == 2 or classes[ind] == 7 or classes[ind] == 3
+                                                          or classes[ind] == 0):
 
                     box = boxes[ind] * np.array([h, w, h, w])
                     box = np.append(box, classes[ind])
-                    rects.append(box.astype('int'))
 
                     (startY, startX, endY, endX, label) = box.astype("int")
+                    distance = dist_estimator.predict_distance(startX, startY, endX, endY)
+                    cv2.putText(img=cv2_im,
+                                text=str(distance),
+                                org=(startX + 30, startY + 30),
+                                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                fontScale=1e-3 * frame.shape[0],
+                                color=(255, 255, 255),
+                                thickness=2)
                     cv2.rectangle(cv2_im, (startX, startY), (endX, endY),
                                   (0, 255, 0), 2)
 
-            # cv2_im = append_objs_to_img(cv2_im, objs, labels)
-
-            objects = ct.update(rects)
-
-            for (objectID, centroid) in objects.items():
-                # draw both the ID of the object and the centroid of the
-                # object on the output frame
-
-                if centroid[1] > line_coords:
-                    if objectID not in counted_cars_ids:
-                        counted_cars += 1
-                        object_type = labels[centroid[2]]
-                        new_entry = {"Number": counted_cars, "Type": object_type, "Date": datetime.datetime.now()}
-                        writer.writerow(new_entry)
-                    counted_cars_ids.append(objectID)
-
-                text = "ID {}".format(objectID)
-                cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                cv2.circle(frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
-
-            # if frames_until_reset == 180:
-            #     counted_cars_ids = []
-            #     frames_until_reset = 0
-
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(
-                cv2_im,
-                'Detected Vehicles: ' + str(counted_cars),
-                (10, 35),
-                font,
-                0.8,
-                (0, 0xFF, 0xFF),
-                2,
-                cv2.FONT_HERSHEY_SIMPLEX,
-            )
-
-            cv2.line(cv2_im, (0, line_coords), (w, line_coords), (0, 0, 0xFF), 5)
-            cv2.line(cv2_im, (vertical_line, line_coords), (vertical_line, h), (0, 0, 0xFF), 5)
+            cv2.imshow('Output', cv2_im)
+            cv2.waitKey(1)
 
             # out.write(frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-
         cap.release()
         # out.release()
         cv2.destroyAllWindows()
